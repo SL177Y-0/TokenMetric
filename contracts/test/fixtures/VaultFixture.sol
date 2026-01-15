@@ -14,7 +14,7 @@ import {MockProtocol} from "../mocks/MockProtocol.sol";
 contract VaultFixture is Test {
     // Contracts
     TMVault vault;
-    MockUSDC usdc;
+    MockUSDC usdt;
     MockProtocol protocolA;
     MockProtocol protocolB;
     MockProtocol protocolC;
@@ -37,16 +37,19 @@ contract VaultFixture is Test {
     event Withdrawn(address indexed owner, uint256 assets, uint256 shares);
     event WithdrawalQueued(address indexed owner, uint256 amount, uint256 index);
     event WithdrawalProcessed(address indexed owner, uint256 amount, uint256 index);
+    event WithdrawalCancelled(address indexed owner, uint256 amount, uint256 index);
     event Allocated(address indexed protocol, uint256 amount);
     event Deallocated(address indexed protocol, uint256 amount);
+    event ProtocolSet(address indexed protocolA, address indexed protocolB);
+    event YieldCollected(address indexed protocol, uint256 amount);
 
     function setUp() public virtual {
         // Deploy mock contracts
-        usdc = new MockUSDC("USD Coin", "USDC", 6);
-        vault = new TMVault(address(usdc), manager);
-        protocolA = new MockProtocol(address(usdc));
-        protocolB = new MockProtocol(address(usdc));
-        protocolC = new MockProtocol(address(usdc));
+        usdt = new MockUSDC("USD Tether", "USDT", 6);
+        vault = new TMVault(address(usdt), manager);
+        protocolA = new MockProtocol(address(usdt));
+        protocolB = new MockProtocol(address(usdt));
+        protocolC = new MockProtocol(address(usdt));
 
         // Set vault in protocols
         vm.startPrank(manager);
@@ -57,10 +60,10 @@ contract VaultFixture is Test {
         vm.stopPrank();
 
         // Fund users with initial balance
-        usdc.mint(user1, INITIAL_BALANCE);
-        usdc.mint(user2, INITIAL_BALANCE);
-        usdc.mint(user3, INITIAL_BALANCE);
-        usdc.mint(attacker, INITIAL_BALANCE);
+        usdt.mint(user1, INITIAL_BALANCE);
+        usdt.mint(user2, INITIAL_BALANCE);
+        usdt.mint(user3, INITIAL_BALANCE);
+        usdt.mint(attacker, INITIAL_BALANCE);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -74,7 +77,7 @@ contract VaultFixture is Test {
      */
     function _deposit(address user, uint256 amount) internal {
         vm.startPrank(user);
-        usdc.approve(address(vault), amount);
+        usdt.approve(address(vault), amount);
         vault.deposit(amount, user);
         vm.stopPrank();
     }
@@ -151,12 +154,27 @@ contract VaultFixture is Test {
     }
 
     /**
-     * @notice Helper to simulate yield on specific protocol
-     * @param protocol Protocol address
+     * @notice Helper to simulate yield on protocolA
      * @param bps Basis points of yield
      */
-    function _simulateYieldOnProtocol(address protocol, uint256 bps) internal {
-        MockProtocol(protocol).accrue(bps);
+    function _accrueYieldA(uint256 bps) internal {
+        protocolA.accrue(bps);
+    }
+
+    /**
+     * @notice Helper to simulate yield on protocolB
+     * @param bps Basis points of yield
+     */
+    function _accrueYieldB(uint256 bps) internal {
+        protocolB.accrue(bps);
+    }
+
+    /**
+     * @notice Helper to simulate yield on protocolC
+     * @param bps Basis points of yield
+     */
+    function _accrueYieldC(uint256 bps) internal {
+        protocolC.accrue(bps);
     }
 
     /**
@@ -164,7 +182,7 @@ contract VaultFixture is Test {
      * @param amount Amount to add to vault
      */
     function _fundVault(uint256 amount) internal {
-        usdc.mint(address(vault), amount);
+        usdt.mint(address(vault), amount);
     }
 
     /**
@@ -263,8 +281,8 @@ contract VaultFixture is Test {
         users[4] = makeAddr("user4");
 
         // Fund new users
-        usdc.mint(users[3], INITIAL_BALANCE);
-        usdc.mint(users[4], INITIAL_BALANCE);
+        usdt.mint(users[3], INITIAL_BALANCE);
+        usdt.mint(users[4], INITIAL_BALANCE);
 
         _depositMany(users, DEPOSIT_AMOUNT);
     }
