@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {VaultFixture} from "../fixtures/VaultFixture.sol";
+import {TMVault} from "../../src/TMVault.sol";
 
 /**
  * @title VaultUnitTests
@@ -17,7 +18,7 @@ contract VaultUnitTests is VaultFixture {
 
     function test_Deposit_Success() public {
         vm.startPrank(user1);
-        usdc.approve(address(vault), DEPOSIT_AMOUNT);
+        usdt.approve(address(vault), DEPOSIT_AMOUNT);
 
         vm.expectEmit(true, true, false, true);
         emit Deposited(user1, user1, DEPOSIT_AMOUNT);
@@ -32,7 +33,7 @@ contract VaultUnitTests is VaultFixture {
 
     function test_Deposit_ToDifferentReceiver() public {
         vm.prank(user1);
-        usdc.approve(address(vault), DEPOSIT_AMOUNT);
+        usdt.approve(address(vault), DEPOSIT_AMOUNT);
 
         vm.prank(user1);
         vault.deposit(DEPOSIT_AMOUNT, user2);
@@ -43,7 +44,7 @@ contract VaultUnitTests is VaultFixture {
 
     function test_Deposit_ZeroAmount_Reverts() public {
         vm.prank(user1);
-        usdc.approve(address(vault), DEPOSIT_AMOUNT);
+        usdt.approve(address(vault), DEPOSIT_AMOUNT);
 
         vm.expectRevert(TMVault.ZeroAssets.selector);
         vault.deposit(0, user1);
@@ -51,7 +52,7 @@ contract VaultUnitTests is VaultFixture {
 
     function test_Deposit_InsufficientAllowance_Reverts() public {
         vm.prank(user1);
-        usdc.approve(address(vault), DEPOSIT_AMOUNT - 1);
+        usdt.approve(address(vault), DEPOSIT_AMOUNT - 1);
 
         vm.expectRevert(); // ERC20 allowance error
         vault.deposit(DEPOSIT_AMOUNT, user1);
@@ -72,7 +73,7 @@ contract VaultUnitTests is VaultFixture {
         uint256 largeAmount = INITIAL_BALANCE;
 
         vm.prank(user1);
-        usdc.approve(address(vault), largeAmount);
+        usdt.approve(address(vault), largeAmount);
 
         vm.prank(user1);
         vault.deposit(largeAmount, user1);
@@ -87,7 +88,7 @@ contract VaultUnitTests is VaultFixture {
     function test_InstantWithdraw_Success() public {
         _deposit(user1, DEPOSIT_AMOUNT);
 
-        uint256 balanceBefore = usdc.balanceOf(user1);
+        uint256 balanceBefore = usdt.balanceOf(user1);
 
         vm.expectEmit(true, false, false, true);
         emit Withdrawn(user1, WITHDRAWAL_AMOUNT, WITHDRAWAL_AMOUNT);
@@ -96,7 +97,7 @@ contract VaultUnitTests is VaultFixture {
         vault.instantWithdraw(WITHDRAWAL_AMOUNT);
 
         assertEq(vault.balances(user1), DEPOSIT_AMOUNT - WITHDRAWAL_AMOUNT, "Balance should decrease");
-        assertEq(usdc.balanceOf(user1), balanceBefore + WITHDRAWAL_AMOUNT, "User should receive funds");
+        assertEq(usdt.balanceOf(user1), balanceBefore + WITHDRAWAL_AMOUNT, "User should receive funds");
         assertEq(vault.totalDeposits(), DEPOSIT_AMOUNT - WITHDRAWAL_AMOUNT, "Total should decrease");
     }
 
@@ -191,7 +192,7 @@ contract VaultUnitTests is VaultFixture {
         _deposit(user1, DEPOSIT_AMOUNT);
         uint256 index = _requestWithdrawal(user1, WITHDRAWAL_AMOUNT);
 
-        uint256 balanceBefore = usdc.balanceOf(user1);
+        uint256 balanceBefore = usdt.balanceOf(user1);
 
         skip(ONE_DAY);
 
@@ -200,7 +201,7 @@ contract VaultUnitTests is VaultFixture {
 
         vault.processWithdrawal(index);
 
-        assertEq(usdc.balanceOf(user1), balanceBefore + WITHDRAWAL_AMOUNT, "User should receive funds");
+        assertEq(usdt.balanceOf(user1), balanceBefore + WITHDRAWAL_AMOUNT, "User should receive funds");
 
         (, , , bool processed) = vault.getWithdrawalRequest(index);
         assertTrue(processed, "Request should be marked processed");
@@ -236,7 +237,9 @@ contract VaultUnitTests is VaultFixture {
         skip(ONE_DAY);
         vault.processWithdrawal(index);
 
-        assertEq(usdc.balanceOf(user1), WITHDRAWAL_AMOUNT, "User should receive funds");
+        // User started with INITIAL_BALANCE, deposited DEPOSIT_AMOUNT, all allocated
+        // After withdrawal, receives WITHDRAWAL_AMOUNT from protocol
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - DEPOSIT_AMOUNT + WITHDRAWAL_AMOUNT, "User should receive funds");
     }
 
     function test_CancelWithdrawal_Success() public {
@@ -314,7 +317,7 @@ contract VaultUnitTests is VaultFixture {
     function test_AllocateToProtocol_Success() public {
         _deposit(user1, DEPOSIT_AMOUNT);
 
-        uint256 vaultBalanceBefore = usdc.balanceOf(address(vault));
+        uint256 vaultBalanceBefore = usdt.balanceOf(address(vault));
 
         vm.prank(manager);
         vm.expectEmit(true, false, false, true);
@@ -324,7 +327,7 @@ contract VaultUnitTests is VaultFixture {
 
         assertEq(vault.protocolBalance(address(protocolA)), WITHDRAWAL_AMOUNT, "Protocol balance should update");
         assertEq(vault.totalAllocated(), WITHDRAWAL_AMOUNT, "Total allocated should update");
-        assertEq(usdc.balanceOf(address(vault)), vaultBalanceBefore - WITHDRAWAL_AMOUNT, "Vault balance should decrease");
+        assertEq(usdt.balanceOf(address(vault)), vaultBalanceBefore - WITHDRAWAL_AMOUNT, "Vault balance should decrease");
     }
 
     function test_AllocateToProtocol_NotManager_Reverts() public {
@@ -357,14 +360,14 @@ contract VaultUnitTests is VaultFixture {
         _deposit(user1, DEPOSIT_AMOUNT);
         _allocate(address(protocolA), WITHDRAWAL_AMOUNT);
 
-        uint256 vaultBalanceBefore = usdc.balanceOf(address(vault));
+        uint256 vaultBalanceBefore = usdt.balanceOf(address(vault));
 
         vm.prank(manager);
         vault.deallocateFromProtocol(address(protocolA), WITHDRAWAL_AMOUNT);
 
         assertEq(vault.protocolBalance(address(protocolA)), 0, "Protocol balance should be 0");
         assertEq(vault.totalAllocated(), 0, "Total allocated should be 0");
-        assertEq(usdc.balanceOf(address(vault)), vaultBalanceBefore + WITHDRAWAL_AMOUNT, "Vault should receive funds");
+        assertEq(usdt.balanceOf(address(vault)), vaultBalanceBefore + WITHDRAWAL_AMOUNT, "Vault should receive funds");
     }
 
     function test_DeallocateFromProtocol_NotManager_Reverts() public {
@@ -467,13 +470,13 @@ contract VaultUnitTests is VaultFixture {
         _allocate(address(protocolA), WITHDRAWAL_AMOUNT);
         _allocate(address(protocolB), WITHDRAWAL_AMOUNT);
 
-        uint256 vaultBalanceBefore = usdc.balanceOf(address(vault));
+        uint256 vaultBalanceBefore = usdt.balanceOf(address(vault));
 
         vm.prank(manager);
         vault.emergencyWithdrawAll();
 
         assertEq(vault.totalAllocated(), 0, "All funds should be deallocated");
-        assertEq(usdc.balanceOf(address(vault)), vaultBalanceBefore + WITHDRAWAL_AMOUNT * 2, "Vault should receive all funds");
+        assertEq(usdt.balanceOf(address(vault)), vaultBalanceBefore + WITHDRAWAL_AMOUNT * 2, "Vault should receive all funds");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -536,7 +539,8 @@ contract VaultUnitTests is VaultFixture {
         skip(ONE_DAY);
         vault.processWithdrawal(index);
 
-        assertEq(usdc.balanceOf(user1), 10_000e6, "User should receive withdrawal");
+        // User started with INITIAL_BALANCE, deposited DEPOSIT_AMOUNT, withdrew 10k
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - DEPOSIT_AMOUNT + 10_000e6, "User should receive withdrawal");
     }
 
     function test_MultiUserScenario() public {
@@ -556,9 +560,10 @@ contract VaultUnitTests is VaultFixture {
         vault.processWithdrawal(index2);
         vault.processWithdrawal(index3);
 
-        assertEq(usdc.balanceOf(user1), 30_000e6);
-        assertEq(usdc.balanceOf(user2), 20_000e6);
-        assertEq(usdc.balanceOf(user3), 10_000e6);
+        // Users started with INITIAL_BALANCE, deposited 100k each, withdrew various amounts
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 100_000e6 + 30_000e6);
+        assertEq(usdt.balanceOf(user2), INITIAL_BALANCE - 100_000e6 + 20_000e6);
+        assertEq(usdt.balanceOf(user3), INITIAL_BALANCE - 100_000e6 + 10_000e6);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -569,10 +574,10 @@ contract VaultUnitTests is VaultFixture {
         // Constrain amount to reasonable values
         vm.assume(amount > 0 && amount <= INITIAL_BALANCE);
 
-        usdc.mint(user1, amount);
+        usdt.mint(user1, amount);
 
         vm.prank(user1);
-        usdc.approve(address(vault), amount);
+        usdt.approve(address(vault), amount);
 
         vm.prank(user1);
         vault.deposit(amount, user1);
@@ -584,29 +589,29 @@ contract VaultUnitTests is VaultFixture {
         // Constrain values
         vm.assume(depositAmount > 0 && depositAmount <= INITIAL_BALANCE);
         vm.assume(withdrawAmount > 0 && withdrawAmount <= depositAmount);
-        vm.assume(withdrawAmount <= TMVault.MAX_SINGLE_WITHDRAWAL());
+        vm.assume(withdrawAmount <= vault.MAX_SINGLE_WITHDRAWAL());
 
-        usdc.mint(user1, depositAmount);
+        usdt.mint(user1, depositAmount);
 
         vm.startPrank(user1);
-        usdc.approve(address(vault), depositAmount);
+        usdt.approve(address(vault), depositAmount);
         vault.deposit(depositAmount, user1);
 
         vault.instantWithdraw(withdrawAmount);
         vm.stopPrank();
 
         assertEq(vault.balances(user1), depositAmount - withdrawAmount);
-        assertEq(usdc.balanceOf(user1), INITIAL_BALANCE - depositAmount + withdrawAmount);
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - depositAmount + withdrawAmount);
     }
 
     function testFuzz_MultipleDeposits(uint256 amount1, uint256 amount2) public {
         vm.assume(amount1 > 0 && amount1 <= INITIAL_BALANCE / 2);
         vm.assume(amount2 > 0 && amount2 <= INITIAL_BALANCE / 2);
 
-        usdc.mint(user1, INITIAL_BALANCE);
+        usdt.mint(user1, INITIAL_BALANCE);
 
         vm.prank(user1);
-        usdc.approve(address(vault), INITIAL_BALANCE);
+        usdt.approve(address(vault), INITIAL_BALANCE);
 
         vm.startPrank(user1);
         vault.deposit(amount1, user1);
