@@ -56,7 +56,7 @@ contract TMVault {
                             IMMUTABLES
     //////////////////////////////////////////////////////////////*/
     IERC20 public immutable asset;
-    address public immutable deploymentTime;
+    uint256 public immutable deploymentTime;
 
     /*//////////////////////////////////////////////////////////////
                             STATE
