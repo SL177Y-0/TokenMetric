@@ -93,7 +93,7 @@ contract MockProtocol {
      * @return Total balance in the protocol
      */
     function balance() external view returns (uint256) {
-        // Calculate balance with accrued yield
+        // Calculate balance with accrued yield (100 bps = 1%, so divide by 10000)
         uint256 yieldAmount = (allocated * yieldBps) / 10000;
         return allocated + yieldAmount;
     }
@@ -118,7 +118,7 @@ contract MockProtocol {
      * @notice Get accrued yield amount
      * @return Total accrued yield in basis points
      */
-    function accruedYield() external view returns (uint256) {
+    function getAccruedYieldBps() external view returns (uint256) {
         return yieldBps;
     }
 
