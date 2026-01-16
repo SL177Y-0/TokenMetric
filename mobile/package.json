@@ -1,0 +1,21 @@
+{
+  "name": "tokenmetric-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "TokenMetric Mobile E2E Tests with Maestro",
+  "scripts": {
+    "test:connect": "maestro test maestro/connect_wallet.yaml",
+    "test:deposit": "maestro test maestro/deposit_flow.yaml",
+    "test:withdraw": "maestro test maestro/withdraw_flow.yaml",
+    "test:errors": "maestro test maestro/error_handling.yaml",
+    "test:vault-switching": "maestro test maestro/vault_switching.yaml",
+    "test:performance": "maestro test maestro/performance.yaml",
+    "test:all": "npm run test:connect && npm run test:deposit && npm run test:withdraw && npm run test:errors && npm run test:vault-switching && npm run test:performance",
+    "test:quick": "npm run test:connect && npm run test:deposit",
+    "test:smoke": "maestro test maestro/connect_wallet.yaml maestro/deposit_flow.yaml maestro/withdraw_flow.yaml",
+    "test:comprehensive": "maestro test maestro/*.yaml"
+  },
+  "devDependencies": {
+    "@maestro/qa": "^1.0.0"
+  }
+}

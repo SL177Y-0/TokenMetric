@@ -1,0 +1,99 @@
+appId: com.tokenmetric.dev
+---
+# Withdrawal Flow Test
+# Tests both instant and queued withdrawal options
+# Prerequisites: User is connected and has vault balance
+
+- runFlow: connect_wallet.yaml
+
+# Navigate to vaults
+- tapOn: "Vaults"
+- tapOn: "Stable Vault"
+
+# Verify user has balance to withdraw
+- assertVisible: "Your Balance:"
+- assertVisible: "$"
+
+# =====================================================================
+# Test Instant Withdrawal
+# =====================================================================
+- tapOn: "Withdraw"
+
+# Enter withdrawal amount
+- assertVisible: "Enter Amount"
+- inputText: "50"
+- tapOn: "Continue"
+
+# Check withdrawal options
+- assertVisible: "Instant Withdrawal"
+- assertVisible: "Queued Withdrawal"
+
+# Select instant withdrawal
+- tapOn: "Instant Withdrawal"
+
+# Verify fee info
+- assertVisible: "Instant Withdrawal Fee"
+- assertVisible: "0.5%"
+- tapOn: "Confirm"
+
+# Wait for wallet confirmation
+- assertVisible: "Confirm in Wallet"
+# User confirms...
+
+# Verify success
+- assertVisible: "Withdrawal Successful"
+- assertVisible: "50 USDC"
+- assertVisible: "Transferred to your wallet"
+
+# =====================================================================
+# Test Queued Withdrawal
+# =====================================================================
+- tapOn: "Done"
+- tapOn: "Withdraw"
+
+# Enter larger amount for queue
+- inputText: "5000"
+- tapOn: "Continue"
+
+# Instant not available for large amounts
+- assertVisible: "Queued Withdrawal"
+- tapOn: "Queued Withdrawal"
+
+# Show queue info
+- assertVisible: "Withdrawal Queue"
+- assertVisible: "Estimated time: 24 hours"
+- assertVisible: "Position: 1"
+
+# Confirm queue request
+- tapOn: "Confirm Queue"
+
+# Verify queued confirmation
+- assertVisible: "Withdrawal Queued"
+- assertVisible: "Queue Position: 1"
+- assertVisible: "You can cancel anytime"
+- tapOn: "View Queue"
+
+# Check queue status
+- assertVisible: "Your Queued Withdrawals"
+- assertVisible: "5,000 USDC"
+- assertVisible: "Pending"
+
+# =====================================================================
+# Test Cancel Queued Withdrawal
+# =====================================================================
+- tapOn: "Cancel Withdrawal"
+
+# Confirm cancellation
+- assertVisible: "Cancel this withdrawal?"
+- assertVisible: "Funds will return to vault"
+- tapOn: "Confirm Cancel"
+
+# Verify cancellation success
+- assertVisible: "Withdrawal Cancelled"
+- assertVisible: "Funds returned to vault"
+
+# =====================================================================
+# Verify Final Balance
+# =====================================================================
+- tapOn: "Back"
+- assertVisible: "Your Balance:"

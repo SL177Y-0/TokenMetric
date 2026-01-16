@@ -1,0 +1,50 @@
+appId: com.tokenmetric.dev
+---
+# Wallet Connection Flow Test
+# Tests the complete wallet connection process
+
+- launchApp
+- assertVisible: "TokenMetric"
+- assertVisible: "Connect Wallet"
+
+# Tap connect wallet button
+- tapOn: "Connect Wallet"
+
+# Wait for wallet selection modal
+- assertVisible: "Select Wallet"
+- assertVisible:
+    - "MetaMask"
+    - "WalletConnect"
+    - "Coinbase Wallet"
+
+# Select MetaMask
+- tapOn: "MetaMask"
+
+# Wait for signature request
+- assertVisible: "Signature Request"
+- assertVisible: "Sign to connect"
+
+# Sign the connection request
+- tapOn: "Sign"
+
+# Verify wallet connected - check address displayed
+- assertVisible: "0x"
+- assertVisible: "USDC Balance:"
+
+# Verify network is correct (should show Mainnet or testnet)
+- assertVisible:
+    - "Network"
+    - "Ethereum"
+
+# Check USDC balance is displayed
+- assertVisible: "$"
+
+# Verify "Disconnect" option is available
+- assertVisible: "Settings"
+
+# Navigate to vault list
+- assertVisible: "Vaults"
+- assertVisible: "Stable Vault"
+
+# Complete - wallet successfully connected
+- assertVisible: "Connected"

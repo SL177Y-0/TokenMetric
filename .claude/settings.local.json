@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(forge:*)",
+      "Bash(curl:*)",
+      "Bash(foundry.exe:*)",
+      "Bash(source:*)",
+      "Bash(foundryup:*)",
+      "Bash(git init:*)"
+    ]
+  }
+}

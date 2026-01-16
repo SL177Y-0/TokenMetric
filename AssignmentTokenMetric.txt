@@ -1,0 +1,144 @@
+### Assignment
+
+**What this mimics in the job**
+You will build and maintain the test infrastructure that ensures our vaults and mobile apps work correctly before handling real funds. This mimics:
+
+* Building reusable test fixtures and mocks
+* Ensuring comprehensive test coverage across the stack
+* Designing test environments that mirror production
+* Automating regression detection
+
+**Goal**
+Build test infrastructure that covers smart contracts, backend APIs, and mobile apps with reusable components.
+
+**Core Scope:**
+
+**1. Smart contract test fixtures (Foundry)**
+Create reusable test helper traits:
+
+```solidity
+// test/fixtures/VaultFixture.sol
+contract VaultFixture is Test {
+    TMVault vault;
+    MockUSDC usdt;
+    MockProtocol protocolA;
+    MockProtocol protocolB;
+
+    address manager = makeAddr("manager");
+    address user1 = makeAddr("user1");
+    address user2 = makeAddr("user2");
+
+    function setUp() public virtual {
+        // Deploy all mocks
+        // Set up initial state
+        // Grant roles
+    }
+
+    function _deposit(address user, uint256 amount) internal {
+        vm.startPrank(user);
+        usdt.approve(address(vault), amount);
+        vault.deposit(amount, user);
+        vm.stopPrank();
+    }
+
+    function _simulateYield(uint256 bps) internal {
+        // Increases underlying protocol value
+    }
+}
+
+```
+
+**2. Mobile/UI tests (Maestro preferred, Detox acceptable)**
+Create subflows:
+
+```yaml
+# connect_wallet.yaml
+- Launch app
+- Tap "Connect Wallet"
+- Complete wallet connection (mock or testnet)
+- Assert: Address displayed, USDC balance shown
+
+# deposit_flow.yaml
+- Prerequisites: Wallet connected, has USDC
+- Navigate to Stable Vault
+- Enter deposit amount
+- Tap Approve (if needed)
+- Tap Deposit
+- Assert: Success screen, balance updated
+
+# error_handling.yaml
+- Attempt deposit with insufficient funds
+- Assert: Clear error message shown
+- Attempt deposit on wrong network
+- Assert: Network switch prompt appears
+
+```
+
+**3. API test fixtures (pytest)**
+
+```python
+# tests/conftest.py
+@pytest.fixture
+def mock_blockchain():
+    """Mock blockchain RPC responses"""
+    with responses.RequestsMock() as rsps:
+        rsps.add(responses.POST, RPC_URL, json={...})
+        yield rsps
+
+@pytest.fixture
+def seeded_db(db_session):
+    """Database with standard test data"""
+    # Insert test protocols, snapshots, etc
+    yield db_session
+
+@pytest.fixture
+def api_client(seeded_db):
+    """FastAPI test client with seeded data"""
+    return TestClient(app)
+
+```
+
+**4. Test data management**
+
+* Scripts to seed testnet wallets with funds
+* Scripts to reset test environment
+* Documentation on test accounts and their purposes
+
+**5. Test coverage report**
+Create a coverage tracking approach:
+
+```text
+## Test Coverage Matrix
+
+| Component      | Unit | Integration | E2E | Status      |
+|----------------|------|-------------|-----|-------------|
+| Vault deposit  | ✅   | ✅          | ✅  | Ready       |
+| Vault withdraw | ✅   | ✅          | 🔄  | In progress |
+| Withdrawal queue| ✅  | ❌          | ❌  | Needs work  |
+| Protocol routing| ✅  | ✅          | N/A | Ready       |
+| Mobile connect | N/A  | N/A         | ✅  | Ready       |
+| Mobile deposit | N/A  | N/A         | ✅  | Ready       |
+| Mobile errors  | N/A  | N/A         | 🔄  | In progress |
+
+```
+
+**6. CI Integration**
+GitHub Actions workflow that:
+
+* Runs all test suites
+* Generates coverage reports
+* Fails on coverage regression
+* Posts summary to PR as PR comment
+
+**High-Signal Checkpoints**
+
+* Whether your fixtures actually reduce soil boilerplate
+* How you handle test isolation (tests don't affect each other)
+* Whether your coverage tracking is actionable
+
+**Stretch Scope**
+
+* **Fuzz testing:** Add Foundry fuzz tests for deposit/withdraw invariants
+* **Visual regression:** Screenshot comparison for app screens
+* **Performance tests:** Measure app startup time, network request latency
+* **Chaos testing:** Inject failures (RPC down, slow network)

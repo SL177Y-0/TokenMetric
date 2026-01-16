@@ -1,0 +1,22 @@
+name: Mobile E2E
+on:
+  push:
+    paths: [ 'mobile/**' ]
+  pull_request:
+    paths: [ 'mobile/**' ]
+jobs:
+  e2e:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+      - name: List flows
+        run: |
+          ls -la mobile/maestro || true
+      - name: Run Maestro flows (placeholder)
+        run: |
+          echo "CI device setup not implemented for demo."

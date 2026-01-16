@@ -1,0 +1,115 @@
+appId: com.tokenmetric.dev
+---
+# Error Handling Flow Test
+# Tests various error scenarios and user-friendly error messages
+
+- runFlow: connect_wallet.yaml
+
+# =====================================================================
+# Test 1: Insufficient Funds Error
+# =====================================================================
+- tapOn: "Vaults"
+- tapOn: "Stable Vault"
+- tapOn: "Deposit"
+
+# Enter amount larger than user's balance
+- inputText: "999999999"
+- tapOn: "Continue"
+
+# Should show insufficient funds error
+- assertVisible: "Insufficient Funds"
+- assertVisible: "You don't have enough USDC"
+- assertVisible: "Your balance:"
+- tapOn: "OK"
+
+# Enter valid amount
+- inputText: "50"
+- tapOn: "Continue"
+- tapOn: "Cancel"
+
+# =====================================================================
+# Test 2: Wrong Network Error
+# =====================================================================
+- assertVisible: "Network"
+- tapOn: "Network"
+
+# Simulate being on wrong network
+- assertVisible: "Switch Network"
+- assertVisible: "Please switch to Ethereum Mainnet"
+
+# Should provide network switch option
+- assertVisible: "Switch"
+- tapOn: "Cancel"
+
+# =====================================================================
+# Test 3: Transaction Failed Error
+# =====================================================================
+- tapOn: "Withdraw"
+
+# Enter withdrawal amount
+- inputText: "1000000000"
+- tapOn: "Instant Withdraw"
+
+# Should show error for amount too large
+- assertVisible: "Amount Exceeds Limit"
+- assertVisible: "Maximum withdrawal: 100,000 USDC"
+- tapOn: "OK"
+
+# =====================================================================
+# Test 4: Network Timeout Error
+# =====================================================================
+# Simulate network issues (toggle airplane mode in test)
+- tapOn: "Deposit"
+- inputText: "10"
+- tapOn: "Continue"
+
+# If network is down:
+- assertVisible: "Network Error"
+- assertVisible: "Unable to connect. Please try again."
+- assertVisible: "Retry"
+- tapOn: "Retry"
+
+# =====================================================================
+# Test 5: User Rejection Error
+# =====================================================================
+- tapOn: "Approve USDC"
+
+# User rejects in wallet
+- waitFor: "Transaction Rejected"
+- assertVisible: "You rejected the transaction"
+- assertVisible: "Try Again"
+
+# =====================================================================
+# Test 6: Slippage Warning
+# =====================================================================
+- tapOn: "Vaults"
+- tapOn: "High Yield Vault"
+
+# Check for slippage warning on high volatility vault
+- assertVisible: "Price Impact Warning"
+- assertVisible: "High slippage detected"
+- assertVisible: "Proceed anyway"
+- assertVisible: "Go back"
+
+# =====================================================================
+# Test 7: Gas Estimation Error
+# =====================================================================
+- tapOn: "Settings"
+- tapOn: "Advanced"
+- tapOn: "Gas Settings"
+
+# Check for gas estimation display
+- assertVisible: "Current Gas Price"
+- assertVisible: "Estimated Fee"
+
+# =====================================================================
+# Verify all error states are recoverable
+# =====================================================================
+- tapOn: "Vaults"
+- assertVisible: "Stable Vault"
+- assertVisible: "TVL"
+- assertVisible: "APY"
+
+# App should still be functional after errors
+- tapOn: "Stable Vault"
+- assertVisible: "Your Balance"

@@ -1,0 +1,68 @@
+appId: com.tokenmetric.dev
+---
+# Deposit Flow Test
+# Tests the complete deposit process including approval
+# Prerequisites: User is connected and has USDC
+
+- runFlow: connect_wallet.yaml
+
+# Navigate to vaults
+- assertVisible: "Vaults"
+- tapOn: "Vaults"
+
+# Select Stable Vault
+- assertVisible: "Stable Vault"
+- tapOn: "Stable Vault"
+
+# Verify vault details displayed
+- assertVisible: "TVL"
+- assertVisible: "APY"
+- assertVisible: "Your Balance"
+
+# Tap Deposit button
+- tapOn: "Deposit"
+
+# Enter deposit amount
+- assertVisible: "Enter Amount"
+- inputText: "100"
+- tapOn: "Continue"
+
+# Check if approval is needed
+- assertVisible:
+    - "Approve USDC"
+    - "Skip if already approved"
+
+# If approval needed:
+- tapOn: "Approve USDC"
+
+# Wait for wallet transaction
+- assertVisible: "Confirm in Wallet"
+# User confirms in wallet...
+
+# Wait for approval confirmation
+- waitFor: "Approval Successful"
+
+# Now proceed with deposit
+- assertVisible: "Deposit 100 USDC"
+- tapOn: "Deposit"
+
+# Wait for transaction confirmation
+- assertVisible: "Confirm in Wallet"
+# User confirms in wallet...
+
+# Verify success screen
+- assertVisible: "Deposit Successful"
+- assertVisible: "100 USDC"
+- assertVisible: "Your Balance:"
+- assertVisible: "$100"
+
+# Verify updated balance in vault
+- tapOn: "Back"
+- assertVisible: "Your Balance"
+- assertVisible: "100"
+
+# Navigate to transaction history
+- tapOn: "History"
+- assertVisible: "Deposit"
+- assertVisible: "100 USDC"
+- assertVisible: "Completed"

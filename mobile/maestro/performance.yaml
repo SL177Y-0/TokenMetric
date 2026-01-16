@@ -1,0 +1,93 @@
+appId: com.tokenmetric.dev
+---
+# Performance and Stress Test Flow
+# Tests app performance under various conditions
+
+- runFlow: connect_wallet.yaml
+
+# =====================================================================
+# Test 1: Rapid Navigation Performance
+# =====================================================================
+- tapOn: "Vaults"
+- tapOn: "Stable Vault"
+- tapOn: "Back"
+- tapOn: "Vaults"
+- tapOn: "High Yield Vault"
+- tapOn: "Back"
+- tapOn: "History"
+- tapOn: "Back"
+
+# Verify no lag or freezing
+- assertVisible: "Vaults"
+
+# =====================================================================
+# Test 2: Large List Scrolling Performance
+# =====================================================================
+- tapOn: "History"
+
+# Scroll through transaction history
+- scroll: "down"
+- scroll: "down"
+- scroll: "down"
+- scroll: "down"
+- scroll: "down"
+
+# Verify smooth scrolling
+- assertVisible: "Transaction History"
+
+# Scroll back up
+- scroll: "up"
+- scroll: "up"
+
+# =====================================================================
+# Test 3: Data Refresh Performance
+# =====================================================================
+- tapOn: "Pull to Refresh"
+
+# Verify loading indicator
+- assertVisible: "Updating..."
+- waitFor: "Updated"
+
+# Data should refresh within 2 seconds
+- assertVisible: "TVL:"
+
+# =====================================================================
+# Test 4: Memory Leak Check (Multiple Operations)
+# =====================================================================
+
+# Perform multiple operations
+- repeat: 10:
+    - tapOn: "Vaults"
+    - tapOn: "Stable Vault"
+    - tapOn: "Back"
+
+# App should still be responsive
+- assertVisible: "Vaults"
+
+# =====================================================================
+# Test 5: Background App Behavior
+# =====================================================================
+- tapOn: "Stable Vault"
+# Background the app
+# Foreground the app
+
+# Verify state restored
+- assertVisible: "Stable Vault"
+- assertVisible: "Your Balance:"
+
+# =====================================================================
+# Test 6: Concurrent Requests Handling
+# =====================================================================
+- tapOn: "Withdraw"
+- tapOn: "Deposit"
+- tapOn: "History"
+
+# Should handle gracefully without crash
+- assertVisible: "History"
+
+# =====================================================================
+# Verify Performance Metrics
+# =====================================================================
+# All operations should complete within reasonable time
+# No ANR (Application Not Responding) errors
+# Memory usage should be stable

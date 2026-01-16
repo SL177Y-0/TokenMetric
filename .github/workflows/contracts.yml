@@ -1,0 +1,251 @@
+name: Contracts
+
+on:
+  push:
+    paths: [ 'contracts/**' ]
+  pull_request:
+    paths: [ 'contracts/**' ]
+  workflow_dispatch:
+
+env:
+  FOUNDRY_PROFILE: optimized
+
+jobs:
+  # =============================================================================
+  # Build & Compile
+  # =============================================================================
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    outputs:
+      cache_hit: ${{ steps.build-cache.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache Foundry
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            contracts/.cache
+            contracts/out
+          key: ${{ runner.os }}-foundry-${{ hashFiles('contracts/src/**') }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dependencies
+        working-directory: contracts
+        run: forge install
+
+      - name: Build contracts
+        working-directory: contracts
+        run: |
+          forge build --sizes
+          forge snapshot --check
+
+  # =============================================================================
+  # Unit Tests
+  # =============================================================================
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Unit Tests
+        working-directory: contracts
+        run: |
+          forge test --match-path "test/unit/Vault.t.sol" -vv
+
+  # =============================================================================
+  # Fuzz Tests
+  # =============================================================================
+  fuzz-test:
+    name: Fuzz Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Fuzz Tests (1k runs)
+        working-directory: contracts
+        run: |
+          forge test --match-path "test/unit/Vault.t.sol" \
+            --match-pattern "testFuzz" \
+            -fuzz-runs 1000 \
+            -vv
+
+  # =============================================================================
+  # Invariant Tests
+  # =============================================================================
+  invariant-test:
+    name: Invariant Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Invariant Tests (100 runs)
+        working-directory: contracts
+        run: |
+          forge test --match-path "test/invariants/VaultInvariants.t.sol" \
+            --mt 100 \
+            -vv
+
+  # =============================================================================
+  # Integration Tests
+  # =============================================================================
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Integration Tests
+        working-directory: contracts
+        run: |
+          forge test --match-path "test/integration/VaultIntegration.t.sol" -vv
+
+  # =============================================================================
+  # Gas Benchmarking
+  # =============================================================================
+  gas-benchmark:
+    name: Gas Benchmark
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Gas Benchmarks
+        working-directory: contracts
+        run: |
+          forge test --match-path "test/performance/GasBenchmark.t.sol" -vv
+
+      - name: Generate Gas Report
+        working-directory: contracts
+        run: |
+          forge snapshot --gas-report
+
+      - name: Upload Gas Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-report
+          path: contracts/.gas-snapshot
+
+  # =============================================================================
+  # Coverage Report
+  # =============================================================================
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Generate Coverage
+        id: coverage
+        working-directory: contracts
+        run: |
+          forge coverage --report lcov > lcov.info
+          forge coverage --report summary > coverage.txt
+
+          # Extract coverage percentage
+          COV=$(grep "Lines" coverage.txt | awk '{print $2}' | tr -d '%')
+          echo "coverage=$COV" >> $GITHUB_OUTPUT
+
+      - name: Coverage Threshold Check
+        run: |
+          COV="${{ steps.coverage.outputs.coverage }}"
+          THRESHOLD=85
+
+          echo "Coverage: ${COV}%"
+          echo "Threshold: ${THRESHOLD}%"
+
+          if (( $(echo "$COV < $THRESHOLD" | bc -l) )); then
+            echo "❌ Coverage below threshold"
+            exit 1
+          fi
+          echo "✅ Coverage meets threshold"
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./contracts/lcov.info
+          flags: contracts
+          name: codecov-contracts
+
+      - name: Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-coverage
+          path: contracts/lcov.info
+
+  # =============================================================================
+  # Linting
+  # =============================================================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Check Formatting
+        working-directory: contracts
+        run: forge fmt --check
+
+      - name: Run Solhint
+        working-directory: contracts
+        run: |
+          npm install -g solhint
+          solhint --config .solhint.json 'src/**/*.sol'
+
+  # =============================================================================
+  # All Tests Summary
+  # =============================================================================
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [unit-test, fuzz-test, invariant-test, integration-test]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.unit-test.result }}" != "success" ] || \
+             [ "${{ needs.fuzz-test.result }}" != "success" ] || \
+             [ "${{ needs.invariant-test.result }}" != "success" ] || \
+             [ "${{ needs.integration-test.result }}" != "success" ]; then
+            echo "❌ Some tests failed"
+            exit 1
+          fi
+          echo "✅ All tests passed"
