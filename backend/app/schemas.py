@@ -5,7 +5,7 @@ Pydantic schemas for request/response validation.
 from datetime import datetime
 from typing import Optional, List
 from decimal import Decimal
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, field_serializer
 
 
 # =============================================================================
@@ -65,6 +65,11 @@ class ProtocolBase(BaseModel):
     description: Optional[str] = Field(None, description="Protocol description")
     apy: Decimal = Field(default=0, ge=0, le=10000, description="APY in percentage")
     risk_level: int = Field(default=1, ge=1, le=5, description="Risk level (1-5)")
+
+    @field_serializer('apy')
+    def serialize_apy(self, apy: Decimal) -> str:
+        """Serialize APY without trailing zeros."""
+        return format(apy, 'f').rstrip('0').rstrip('.') if '.' in format(apy, 'f') else str(apy)
 
 
 class ProtocolCreate(ProtocolBase):
@@ -136,10 +141,22 @@ class VaultUserResponse(BaseModel):
 
 class UserVaultBalanceResponse(BaseModel):
     """Schema for user balance response."""
-    user_address: str
     vault_id: int
-    balance: Decimal
-    updated_at: datetime
+    user_address: str
+    balance: str  # Balance as string for JSON serialization
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_decimal(cls, vault_id: int, user_address: str, balance: Decimal, updated_at: Optional[datetime] = None):
+        """Create response from Decimal balance."""
+        # Normalize decimal to remove trailing zeros
+        normalized_balance = format(balance, 'f').rstrip('0').rstrip('.')
+        return cls(
+            vault_id=vault_id,
+            user_address=user_address,
+            balance=normalized_balance,
+            updated_at=updated_at
+        )
 
 
 # =============================================================================
