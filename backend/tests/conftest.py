@@ -58,8 +58,14 @@ def setup_database():
 
     # Clean up test database file
     import os
-    if os.path.exists("./test.db"):
-        os.remove("./test.db")
+    import gc
+    gc.collect()  # Force garbage collection to release file handles
+    try:
+        if os.path.exists("./test.db"):
+            os.remove("./test.db")
+    except (PermissionError, OSError):
+        # On Windows, the file might be locked - skip cleanup
+        pass
 
 
 @pytest.fixture
@@ -187,26 +193,35 @@ def seeded_db(db_session):
 @pytest.fixture
 def mock_rpc_responses():
     """Mock various RPC responses."""
-    with responses.RequestsMock() as rsps:
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         # Block number
         def block_number_callback(request):
             return (200, {}, '{"jsonrpc":"2.0","id":1,"result":"0x123456"}')
 
-        # Balance of
+        # Balance of (erc20 balanceOf)
         def balance_callback(request):
             import json
             payload = json.loads(request.body)
             if "0x" in payload.get("params", [""])[0]:
-                return (200, {}, '{"jsonrpc":"2.0","id":1,"result":"0x0de0b6b3a7640000"}')
+                # Return large balance for tests (1000000 USDC in 6 decimals = 1000000*10^6)
+                return (200, {}, '{"jsonrpc":"2.0","id":1,"result":"0xd3c21bcecceda1000000"}')  # 1e24
             return (200, {}, '{"jsonrpc":"2.0","id":1,"result":"0x0"}')
 
         # Allowance
         def allowance_callback(request):
             return (200, {}, '{"jsonrpc":"2.0","id":1,"result":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}')
 
+        # Token balance (special contract call for USDC)
+        def token_balance_callback(request):
+            import json
+            payload = json.loads(request.body)
+            # Return large balance for token balance checks
+            return (200, {}, '{"jsonrpc":"2.0","id":1,"result":"0xd3c21bcecceda1000000"}')  # 1e24
+
         rsps.add_callback(responses.POST, RPC_URL, callback=block_number_callback)
         rsps.add_callback(responses.POST, RPC_URL, callback=balance_callback)
         rsps.add_callback(responses.POST, RPC_URL, callback=allowance_callback)
+        rsps.add_callback(responses.POST, RPC_URL, callback=token_balance_callback)
 
         yield rsps
 
