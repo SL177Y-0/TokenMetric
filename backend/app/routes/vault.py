@@ -8,7 +8,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from sqlalchemy import func
 
 from ..database import get_db
 from ..models import (
@@ -19,7 +19,7 @@ from ..models import (
 from ..schemas import (
     VaultCreate, VaultUpdate, VaultResponse, VaultDetail,
     DepositRequest, DepositResponse, WithdrawRequest, WithdrawResponse,
-    WithdrawalRequestResponse, VaultStats
+    WithdrawalRequestResponse, VaultStats, UserVaultBalanceResponse
 )
 from ..blockchain import BlockchainClient, get_client, wei_to_decimal, decimal_to_wei
 
@@ -173,7 +173,7 @@ def delete_vault(
 # User Balance Endpoints
 # =============================================================================
 
-@router.get("/{vault_id}/users/{user_address}", response_model=BaseModel)
+@router.get("/{vault_id}/users/{user_address}", response_model=UserVaultBalanceResponse)
 def get_user_balance(
     vault_id: int,
     user_address: str,
@@ -214,12 +214,12 @@ def get_user_balance(
         # Fallback to database
         balance = vault_user.balance if vault_user else Decimal(0)
 
-    return {
-        "vault_id": vault_id,
-        "user_address": user_address,
-        "balance": balance,
-        "updated_at": datetime.utcnow() if vault_user else None,
-    }
+    return UserVaultBalanceResponse.from_decimal(
+        vault_id=vault_id,
+        user_address=user_address,
+        balance=balance,
+        updated_at=vault_user.updated_at if vault_user else None
+    )
 
 
 @router.get("/{vault_id}/users", response_model=List[dict])
@@ -556,7 +556,7 @@ def get_vault_stats(
         Transaction.tx_type == TransactionType.WITHDRAW,
         Transaction.status == TransactionStatus.COMPLETED
     ).with_entities(
-        db.func.sum(Transaction.amount)
+        func.sum(Transaction.amount)
     ).scalar() or Decimal(0)
 
     return VaultStats(
