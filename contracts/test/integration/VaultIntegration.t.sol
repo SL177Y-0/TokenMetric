@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {VaultFixture} from "../fixtures/VaultFixture.sol";
+import {TMVault} from "../../src/TMVault.sol";
 
 /**
  * @title VaultIntegrationTests
@@ -71,7 +72,7 @@ contract VaultIntegrationTests is VaultFixture {
         _allocate(address(protocolB), 80_000e6);
 
         // Vault has 20k left
-        assertEq(usdc.balanceOf(address(vault)), 20_000e6);
+        assertEq(usdt.balanceOf(address(vault)), 20_000e6);
 
         // Request withdrawal larger than vault liquidity
         uint256 index = _requestWithdrawal(user1, 50_000e6);
@@ -81,8 +82,8 @@ contract VaultIntegrationTests is VaultFixture {
         // Should deallocate from protocols to fulfill
         vault.processWithdrawal(index);
 
-        // Verify withdrawal succeeded
-        assertEq(usdc.balanceOf(user1), 50_000e6);
+        // Verify withdrawal succeeded (user had INITIAL_BALANCE, deposited 200k, now gets 50k back)
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 200_000e6 + 50_000e6);
 
         // Verify deallocation happened
         assertLt(vault.totalAllocated(), 180_000e6);
@@ -113,9 +114,10 @@ contract VaultIntegrationTests is VaultFixture {
         vault.processWithdrawal(index2);
         vault.processWithdrawal(index3);
 
-        assertEq(usdc.balanceOf(user1), 30_000e6);
-        assertEq(usdc.balanceOf(user2), 20_000e6);
-        assertEq(usdc.balanceOf(user3), 10_000e6);
+        // Users started with INITIAL_BALANCE, deposited 100k each, withdrew partial amounts
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 100_000e6 + 30_000e6);
+        assertEq(usdt.balanceOf(user2), INITIAL_BALANCE - 100_000e6 + 20_000e6);
+        assertEq(usdt.balanceOf(user3), INITIAL_BALANCE - 100_000e6 + 10_000e6);
     }
 
     function test_Integration_Queue_WithYieldAccrual() public {
@@ -133,7 +135,8 @@ contract VaultIntegrationTests is VaultFixture {
         // Process withdrawal - yield should be tracked
         vault.processWithdrawal(index);
 
-        assertEq(usdc.balanceOf(user1), 50_000e6);
+        // User started with INITIAL_BALANCE, deposited 100k, withdrew 50k
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 100_000e6 + 50_000e6);
     }
 
     function test_Integration_Queue_CancelAndRequeue() public {
@@ -151,7 +154,8 @@ contract VaultIntegrationTests is VaultFixture {
         skip(ONE_DAY);
         vault.processWithdrawal(index2);
 
-        assertEq(usdc.balanceOf(user1), 20_000e6);
+        // User started with INITIAL_BALANCE, deposited 100k, withdrew 20k
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 100_000e6 + 20_000e6);
         assertEq(vault.balances(user1), 80_000e6);
     }
 
@@ -178,7 +182,7 @@ contract VaultIntegrationTests is VaultFixture {
         address[] memory prots = new address[](1);
         prots[0] = address(protocolA);
         vm.prank(manager);
-        vault.collectYield(prosts);
+        vault.collectYield(prots);
 
         // 6. User requests withdrawal
         uint256 index = _requestWithdrawal(user1, 10_000e6);
@@ -189,8 +193,8 @@ contract VaultIntegrationTests is VaultFixture {
         // 8. Withdrawal processed
         vault.processWithdrawal(index);
 
-        // 9. User receives funds
-        assertEq(usdc.balanceOf(user1), 10_000e6);
+        // 9. User receives funds (started with INITIAL_BALANCE, deposited 50k, withdrew 10k)
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 50_000e6 + 10_000e6);
         assertEq(vault.balances(user1), 40_000e6);
     }
 
@@ -222,13 +226,13 @@ contract VaultIntegrationTests is VaultFixture {
 
         // Phase 5: New deposits
         address newUser = makeAddr("newUser");
-        usdc.mint(newUser, 50_000e6);
+        usdt.mint(newUser, 50_000e6);
         _deposit(newUser, 50_000e6);
 
-        // Final state checks
+        // Final state checks (users deposited 100k each, withdrew 20k and 30k respectively)
         assertEq(vault.totalDeposits(), 300_000e6 - 50_000e6);
-        assertEq(usdc.balanceOf(user1), 20_000e6);
-        assertEq(usdc.balanceOf(user2), 30_000e6);
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 100_000e6 + 20_000e6);
+        assertEq(usdt.balanceOf(user2), INITIAL_BALANCE - 100_000e6 + 30_000e6);
     }
 
     function test_Integration_E2E_EmergencyScenario() public {
@@ -247,7 +251,7 @@ contract VaultIntegrationTests is VaultFixture {
 
         // All funds back in vault
         assertEq(vault.totalAllocated(), 0);
-        assertGt(usdc.balanceOf(address(vault)), 0);
+        assertGt(usdt.balanceOf(address(vault)), 0);
 
         // Withdrawals can still process
         skip(ONE_DAY);
@@ -262,7 +266,7 @@ contract VaultIntegrationTests is VaultFixture {
     function test_Integration_Stress_RapidDepositsWithdrawals() public {
         // Many rapid deposits
         for (uint256 i = 0; i < 50; i++) {
-            usdc.mint(user1, INITIAL_BALANCE);
+            usdt.mint(user1, INITIAL_BALANCE);
             _deposit(user1, 10_000e6);
         }
 
@@ -298,7 +302,7 @@ contract VaultIntegrationTests is VaultFixture {
         address[] memory users = new address[](20);
         for (uint256 i = 0; i < 20; i++) {
             users[i] = makeAddr(string(abi.encodePacked("user", i)));
-            usdc.mint(users[i], INITIAL_BALANCE);
+            usdt.mint(users[i], INITIAL_BALANCE);
         }
 
         // All users deposit
@@ -326,7 +330,7 @@ contract VaultIntegrationTests is VaultFixture {
         // Verify all users have correct balances
         for (uint256 i = 0; i < 10; i++) {
             assertEq(vault.balances(users[i]), 40_000e6);
-            assertEq(usdc.balanceOf(users[i]), 10_000e6);
+            assertEq(usdt.balanceOf(users[i]), INITIAL_BALANCE - 50_000e6 + 10_000e6);
         }
 
         for (uint256 i = 10; i < 20; i++) {
@@ -354,7 +358,7 @@ contract VaultIntegrationTests is VaultFixture {
         // Should deallocate from B first
         vault.processWithdrawal(index);
 
-        assertEq(usdc.balanceOf(user1), 25_000e6);
+        // User started with INITIAL_BALANCE, deposited 100k, withdrew 25k\n        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 100_000e6 + 25_000e6);
     }
 
     function test_Integration_Failover_ProtocolRemoval() public {
@@ -392,7 +396,7 @@ contract VaultIntegrationTests is VaultFixture {
         prots[1] = address(protocolB);
 
         vm.prank(manager);
-        vault.collectYield(propts);
+        vault.collectYield(prots);
 
         // Expected: (50k * 0.10) + (30k * 0.05) = 5000 + 1500 = 6500
         assertGe(vault.totalYield(), 6500 - 100); // Small tolerance

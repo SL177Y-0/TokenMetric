@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {VaultFixture} from "../fixtures/VaultFixture.sol";
+import {TMVault} from "../../src/TMVault.sol";
 
 /**
  * @title VaultInvariants
@@ -53,7 +54,7 @@ contract VaultInvariants is VaultFixture {
      * @notice Total assets equals vault balance + allocated
      */
     function invariant_totalAssetsCalculation() public view {
-        uint256 expectedTotal = usdc.balanceOf(address(vault)) + vault.totalAllocated();
+        uint256 expectedTotal = usdt.balanceOf(address(vault)) + vault.totalAllocated();
         uint256 actualTotal = vault.totalAssets();
 
         // Allow small difference due to yield tracking
@@ -66,7 +67,7 @@ contract VaultInvariants is VaultFixture {
      */
     function invariant_queueSizeValid() public view {
         uint256 queueSize = vault.getQueueSize();
-        assertLe(queueSize, TMVault.MAX_QUEUE_SIZE());
+        assertLe(queueSize, vault.MAX_QUEUE_SIZE());
     }
 
     /**
@@ -76,7 +77,7 @@ contract VaultInvariants is VaultFixture {
         uint256[] memory userIndices = vault.getUserWithdrawals(user1);
 
         for (uint256 i = 0; i < userIndices.length; i++) {
-            assertTrue(userIndices[i] < withdrawalQueue.length(), "Invalid queue index");
+            assertTrue(userIndices[i] < vault.getQueueSize(), "Invalid queue index");
         }
     }
 
@@ -119,14 +120,14 @@ contract VaultInvariants is VaultFixture {
         // Constrain values
         vm.assume(depositAmount > 0 && depositAmount <= INITIAL_BALANCE);
         vm.assume(withdrawAmount > 0 && withdrawAmount <= depositAmount);
-        vm.assume(withdrawAmount <= TMVault.MAX_SINGLE_WITHDRAWAL());
+        vm.assume(withdrawAmount <= vault.MAX_SINGLE_WITHDRAWAL());
 
         uint256 totalDepositsBefore = vault.totalDeposits();
 
         // Deposit
-        usdc.mint(user1, depositAmount);
+        usdt.mint(user1, depositAmount);
         vm.prank(user1);
-        usdc.approve(address(vault), depositAmount);
+        usdt.approve(address(vault), depositAmount);
         vm.prank(user1);
         vault.deposit(depositAmount, user1);
 
@@ -185,8 +186,8 @@ contract VaultInvariants is VaultFixture {
     ) public {
         vm.assume(amount1 > 0 && amount1 < DEPOSIT_AMOUNT);
         vm.assume(amount2 > 0 && amount2 < DEPOSIT_AMOUNT - amount1);
-        vm.assume(amount1 <= TMVault.MAX_SINGLE_WITHDRAWAL());
-        vm.assume(amount2 <= TMVault.MAX_SINGLE_WITHDRAWAL());
+        vm.assume(amount1 <= vault.MAX_SINGLE_WITHDRAWAL());
+        vm.assume(amount2 <= vault.MAX_SINGLE_WITHDRAWAL());
 
         _deposit(user1, DEPOSIT_AMOUNT);
 
@@ -217,7 +218,7 @@ contract VaultInvariants is VaultFixture {
         _allocate(address(protocolA), DEPOSIT_AMOUNT);
 
         // Accrue yield
-        _simulateYieldOnProtocol(address(protocolA), yieldBps);
+        protocolA.accrue(yieldBps);
 
         // Collect yield
         address[] memory protocols = new address[](1);
@@ -248,9 +249,9 @@ contract VaultInvariants is VaultFixture {
             uint256 withdrawAmount = bound(i * 1000e6, 1, balance);
 
             vm.prank(user1);
-            if (withdrawAmount <= balance && withdrawAmount <= TMVault.MAX_SINGLE_WITHDRAWAL()) {
+            if (withdrawAmount <= balance && withdrawAmount <= vault.MAX_SINGLE_WITHDRAWAL()) {
                 // Should succeed (if enough vault liquidity)
-                if (usdc.balanceOf(address(vault)) >= withdrawAmount) {
+                if (usdt.balanceOf(address(vault)) >= withdrawAmount) {
                     vault.instantWithdraw(withdrawAmount);
                     balance -= withdrawAmount;
                 }
@@ -264,7 +265,7 @@ contract VaultInvariants is VaultFixture {
     function testProperty_AllocationRequiresLiquidity() public {
         _deposit(user1, DEPOSIT_AMOUNT);
 
-        uint256 vaultBalance = usdc.balanceOf(address(vault));
+        uint256 vaultBalance = usdt.balanceOf(address(vault));
 
         for (uint256 i = 1; i <= 5; i++) {
             uint256 allocateAmount = vaultBalance / i;
@@ -305,7 +306,7 @@ contract VaultInvariants is VaultFixture {
      * @notice Edge case: max withdrawal amount
      */
     function testEdgeCase_MaxWithdrawalAmount() public {
-        uint256 maxWithdraw = TMVault.MAX_SINGLE_WITHDRAWAL();
+        uint256 maxWithdraw = vault.MAX_SINGLE_WITHDRAWAL();
         _deposit(user1, maxWithdraw);
 
         // Should succeed with exactly max
@@ -330,11 +331,11 @@ contract VaultInvariants is VaultFixture {
         _deposit(user1, 1_000_000e6);
 
         // Fill queue to capacity
-        for (uint256 i = 0; i < TMVault.MAX_QUEUE_SIZE(); i++) {
+        for (uint256 i = 0; i < vault.MAX_QUEUE_SIZE(); i++) {
             _requestWithdrawal(user1, 1000e6);
         }
 
-        assertEq(vault.getQueueSize(), TMVault.MAX_QUEUE_SIZE());
+        assertEq(vault.getQueueSize(), vault.MAX_QUEUE_SIZE());
 
         // Next should fail
         vm.prank(user1);
@@ -394,7 +395,7 @@ contract VaultInvariants is VaultFixture {
      */
     function testEdgeCase_DepositToZeroAddress() public {
         vm.prank(user1);
-        usdc.approve(address(vault), DEPOSIT_AMOUNT);
+        usdt.approve(address(vault), DEPOSIT_AMOUNT);
 
         // Some vaults might block this, but ours allows it
         vm.prank(user1);
