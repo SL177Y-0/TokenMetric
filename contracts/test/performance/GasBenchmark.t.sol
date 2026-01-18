@@ -43,7 +43,7 @@ contract GasBenchmark is VaultFixture {
 
     function test_Gas_Deposit() public {
         vm.startPrank(user1);
-        usdc.approve(address(vault), DEPOSIT_AMOUNT);
+        usdt.approve(address(vault), DEPOSIT_AMOUNT);
         vm.stopPrank();
 
         uint256 gasBefore = gasleft();
@@ -125,18 +125,18 @@ contract GasBenchmark is VaultFixture {
     function test_Gas_Deposit_Scale(uint256 count) public {
         vm.assume(count >= 1 && count <= 100);
 
-        uint256[] memory gasUsages = new uint256[](int256(count));
+        uint256[] memory gasUsages = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
             address user = makeAddr(string(abi.encodePacked("user", i)));
-            usdc.mint(user, DEPOSIT_AMOUNT);
+            usdt.mint(user, DEPOSIT_AMOUNT);
 
             vm.startPrank(user);
-            usdc.approve(address(vault), DEPOSIT_AMOUNT);
+            usdt.approve(address(vault), DEPOSIT_AMOUNT);
 
             uint256 gasBefore = gasleft();
             vault.deposit(DEPOSIT_AMOUNT, user);
-            gasUsages[int256(i)] = gasBefore - gasleft();
+            gasUsages[i] = gasBefore - gasleft();
             vm.stopPrank();
         }
 
@@ -148,7 +148,7 @@ contract GasBenchmark is VaultFixture {
         avgGas /= count;
 
         // First deposit might be more expensive, but subsequent ones should be consistent
-        assertLe(gasUsages[int256(count - 1)], avgGas * 11 / 10, "Gas increased significantly");
+        assertLe(gasUsages[count - 1], avgGas * 11 / 10, "Gas increased significantly");
     }
 
     function test_Gas_QueueFilling() public {

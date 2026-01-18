@@ -3,6 +3,8 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {VaultFixture} from "../fixtures/VaultFixture.sol";
+import {TMVault} from "../../src/TMVault.sol";
+import {Mockusdt} from "../mocks/Mockusdt.sol";
 
 /**
  * @title ChaosTests
@@ -97,18 +99,18 @@ contract ChaosTests is VaultFixture {
         address[] memory users = new address[](10);
         for (uint256 i = 0; i < 10; i++) {
             users[i] = makeAddr(string(abi.encodePacked("user", i)));
-            usdc.mint(users[i], DEPOSIT_AMOUNT);
+            usdt.mint(users[i], DEPOSIT_AMOUNT);
         }
 
         // All users deposit at once
         vm.startPrank(users[0]);
-        usdc.approve(address(vault), DEPOSIT_AMOUNT);
+        usdt.approve(address(vault), DEPOSIT_AMOUNT);
         vault.deposit(DEPOSIT_AMOUNT, users[0]);
         vm.stopPrank();
 
         for (uint256 i = 1; i < 10; i++) {
             vm.prank(users[i]);
-            usdc.approve(address(vault), DEPOSIT_AMOUNT);
+            usdt.approve(address(vault), DEPOSIT_AMOUNT);
             vault.deposit(DEPOSIT_AMOUNT, users[i]);
         }
 
@@ -139,7 +141,7 @@ contract ChaosTests is VaultFixture {
 
         // All should be processed
         assertEq(vault.getQueueSize(), 0);
-        assertEq(usdc.balanceOf(user1), 100_000e6);
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - 1_000_000e6 + 100_000e6);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -150,10 +152,10 @@ contract ChaosTests is VaultFixture {
         uint256 maxDeposit = type(uint256).max;
 
         // This should revert due to overflow protection
-        usdc.mint(user1, INITIAL_BALANCE);
+        usdt.mint(user1, INITIAL_BALANCE);
 
         vm.prank(user1);
-        usdc.approve(address(vault), INITIAL_BALANCE);
+        usdt.approve(address(vault), INITIAL_BALANCE);
 
         // Valid deposit
         vm.prank(user1);
@@ -198,12 +200,12 @@ contract ChaosTests is VaultFixture {
 
     function test_Chaos_ReenterancyProtection() public {
         // Create malicious contract that tries to reenter
-        MaliciousContract attacker = new MaliciousContract(address(vault), address(usdc));
+        MaliciousContract attacker = new MaliciousContract(address(vault), address(usdt));
 
-        usdc.mint(address(attacker), DEPOSIT_AMOUNT);
+        usdt.mint(address(attacker), DEPOSIT_AMOUNT);
 
         vm.startPrank(address(attacker));
-        usdc.approve(address(vault), DEPOSIT_AMOUNT);
+        usdt.approve(address(vault), DEPOSIT_AMOUNT);
 
         // Attempt reentrancy attack
         vm.expectRevert(); // Should fail due to checks-effects-interactions
@@ -237,7 +239,7 @@ contract ChaosTests is VaultFixture {
         address[] memory users = new address[](50);
         for (uint256 i = 0; i < 50; i++) {
             users[i] = makeAddr(string(abi.encodePacked("user", i)));
-            usdc.mint(users[i], DEPOSIT_AMOUNT);
+            usdt.mint(users[i], DEPOSIT_AMOUNT);
             _deposit(users[i], DEPOSIT_AMOUNT);
         }
 
@@ -254,17 +256,17 @@ contract ChaosTests is VaultFixture {
  */
 contract MaliciousContract {
     TMVault public vault;
-    MockUSDC public usdc;
+    Mockusdt public usdt;
     bool public attacking;
 
-    constructor(address _vault, address _usdc) {
+    constructor(address _vault, address _usdt) {
         vault = TMVault(_vault);
-        usdc = MockUSDC(_usdc);
+        usdt = Mockusdt(_usdt);
     }
 
     function attack(uint256 amount) external {
         attacking = true;
-        usdc.approve(address(vault), amount);
+        usdt.approve(address(vault), amount);
         vault.deposit(amount, address(this));
 
         // Try to reenter during deposit
@@ -276,7 +278,7 @@ contract MaliciousContract {
     receive() external payable {
         if (attacking) {
             // Try to reenter
-            vault.instantWithdraw(usdc.balanceOf(address(this)));
+            vault.instantWithdraw(usdt.balanceOf(address(this)));
         }
     }
 }
