@@ -1,0 +1,107 @@
+appId: com.tokenmetric.dev
+---
+# Visual Regression Testing Flow
+# Tests for visual consistency and screenshot comparison
+# Stretch goal: Implement screenshot comparison using tools like Applitools
+
+# Note: This is a placeholder for visual regression tests
+# To implement fully, integrate with a visual testing service
+
+# =====================================================================
+# Base Screen Captures
+# =====================================================================
+
+- launchApp
+- assertVisible: "TokenMetric"
+
+# Capture home screen baseline
+- screenshot: "baseline_home_screen"
+
+# Connect wallet and capture
+- runFlow: connect_wallet.yaml
+- screenshot: "baseline_connected_wallet"
+
+# Navigate to vault list
+- tapOn: "Vaults"
+- waitFor: "Stable Vault"
+- screenshot: "baseline_vault_list"
+
+# Open vault details
+- tapOn: "Stable Vault"
+- waitFor: "TVL"
+- screenshot: "baseline_vault_details"
+
+# =====================================================================
+# UI State Comparisons
+# =====================================================================
+
+# Dark mode toggle (if available)
+- tapOn: "Settings"
+- extendedWaitUntil: "Theme"
+- screenshot: "settings_theme_light"
+
+# Toggle to dark mode
+- tapOn: "Dark Mode"
+- screenshot: "settings_theme_dark"
+
+# Return to light mode
+- tapOn: "Light Mode"
+- screenshot: "settings_theme_restored"
+
+# =====================================================================
+# Responsive Layout Checks
+# =====================================================================
+
+# Rotate to landscape (if supported)
+- rotateDevice: "landscape"
+- screenshot: "vault_details_landscape"
+
+# Return to portrait
+- rotateDevice: "portrait"
+- screenshot: "vault_details_portrait"
+
+# =====================================================================
+# Error State Screenshots
+# =====================================================================
+
+- tapOn: "Deposit"
+- inputText: "999999999"
+- tapOn: "Continue"
+- waitFor: "Insufficient Funds"
+- screenshot: "error_insufficient_funds"
+- tapOn: "OK"
+
+# =====================================================================
+# Success State Screenshots
+# =====================================================================
+
+- tapOn: "Cancel"
+- tapOn: "Vaults"
+- tapOn: "Stable Vault"
+- screenshot: "vault_details_final"
+
+# =====================================================================
+# Visual Regression Notes
+# =====================================================================
+# 
+# To implement full visual regression:
+# 1. Integrate with Applitools Eyes: https://applitools.com/
+# 2. Or use Percy by BrowserStack: https://percy.io/
+# 3. Or use Chromatic for Storybook: https://www.chromatic.com/
+#
+# Example Applitools integration:
+# - initEyes:
+#     apiKey: ${APPLITOOLS_API_KEY}
+#     appName: "TokenMetric"
+#     testName: "Visual Regression"
+#
+# - checkWindow: "Home Screen"
+# - checkRegion: 
+#     selector: "#vault-list"
+#     tag: "Vault List"
+#
+# For now, screenshots are captured for manual review or
+# can be compared using image diff tools like:
+# - ImageMagick: compare baseline.png current.png diff.png
+# - Resemble.js
+# - looks-same

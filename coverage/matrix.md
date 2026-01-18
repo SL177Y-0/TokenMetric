@@ -2,10 +2,10 @@
 
 | Component        | Unit | Integration | E2E | Status       |
 |------------------|------|-------------|-----|--------------|
-| Vault deposit    | ✅   | ✅          | ✅  | Ready        |
-| Vault withdraw   | ✅   | ✅          | 🔄  | In progress  |
-| Withdrawal queue | ✅   | ❌          | ❌  | Needs work   |
-| Protocol routing | ✅   | ✅          | N/A | Ready        |
-| Mobile connect   | N/A  | N/A         | ✅  | Ready        |
-| Mobile deposit   | N/A  | N/A         | ✅  | Ready        |
-| Mobile errors    | N/A  | N/A         | 🔄  | In progress  |
+| Vault deposit    | Yes  | Yes         | Yes | Ready        |
+| Vault withdraw   | Yes  | Yes         | Yes | Ready        |
+| Withdrawal queue | Yes  | Yes         | Yes | Ready        |
+| Protocol routing | Yes  | Yes         | N/A | Ready        |
+| Mobile connect   | N/A  | N/A         | Yes | Ready        |
+| Mobile deposit   | N/A  | N/A         | Yes | Ready        |
+| Mobile errors    | N/A  | N/A         | Yes | Ready        |
