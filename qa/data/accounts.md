@@ -4,7 +4,7 @@
 
 This document describes the test accounts used across the TokenMetric testing infrastructure.
 
-## ⚠️ Warning
+## Warning
 
 **These accounts are for testing purposes only. Never use real funds with these addresses.**
 
